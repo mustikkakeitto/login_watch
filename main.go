@@ -17,13 +17,6 @@ import (
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 )
 
-// Output log record
-type logRecord struct {
-	phone string
-	ip    string
-	time  int64
-}
-
 // REST output
 type outputData struct {
 	Code        int                 `json:"code"`
@@ -32,12 +25,17 @@ type outputData struct {
 	Data        []map[string]string `json:"data"`
 }
 
+const (
+	ReportingReasonSequence = "sequence"
+	ReportingReasonOther = "other"
+)
+
 var listMutex sync.Mutex
 
 // Performs search for the IP given with a series analyzer
-// Reports Found Status if positive, Not Found - otherwise
+// Reports Found Status and saves into the bad IPs report log - if positive, Not Found - otherwise
 // Saves the IP into the analyzer internal log
-func searchAndSaveHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List, repLogger *log.Logger) {
+func searchAndSaveHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List, badIPsRepLogger *log.Logger) {
 	defer serverErrorHandler(w, r)
 
 	oData := outputData{
@@ -65,7 +63,7 @@ func searchAndSaveHandler(w http.ResponseWriter, r *http.Request, loginLog *list
 			oData.Code = 200
 			oData.Status = "Found"
 			oData.Description = "Success"
-			repLogger.Println(ip)
+			badIPsRepLogger.Println(ip, ReportingReasonSequence)
 		} else {
 			oData.Code = 200
 			oData.Status = "Not found"
@@ -78,15 +76,48 @@ func searchAndSaveHandler(w http.ResponseWriter, r *http.Request, loginLog *list
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(oData)
-	if err != nil {
-		return
+	_ = json.NewEncoder(w).Encode(oData)
+}
+
+// Saves bad IP into the bad IPs report log with a reason given
+// Reports Saved Status
+func reportBadIPHandler (w http.ResponseWriter, r *http.Request, badIPsRepLogger *log.Logger) {
+	defer serverErrorHandler(w, r)
+
+	oData := outputData{
+		Code:        501,
+		Status:      "error",
+		Description: "n/a",
 	}
+
+	var ip string
+	repReason := ReportingReasonOther
+
+	vars := mux.Vars(r)
+	if reqVar, reqVarExists := vars["ip"]; reqVarExists {
+		ip = reqVar
+	}
+	if reqVar, reqVarExists := vars["reason"]; reqVarExists {
+		repReason = reqVar
+	}
+
+	if ip != "" {
+		oData.Code = 200
+		oData.Status = "Saved"
+		oData.Description = "Success"
+		badIPsRepLogger.Println(ip, repReason)
+	} else {
+		oData.Code = 400
+		oData.Description = "No IP provided"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(oData)
 }
 
 // Performs search and removal for the IP given in the series analyzer internal log
 // Reports Removed Status if positive, Not Found - otherwise
-// Used in case of successfull login from the IP, that was processed by the analyzer before
+// Used in case of successful login from the IP, that was processed by the analyzer before
 func removalHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List) {
 	defer serverErrorHandler(w, r)
 
@@ -120,10 +151,7 @@ func removalHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(oData)
-	if err != nil {
-		return
-	}
+	_ = json.NewEncoder(w).Encode(oData)
 }
 
 // Performs cleanup of outdated records in the series analyzer internal log
@@ -143,10 +171,7 @@ func cleanupHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List)
 	resOutput = map[string]string{"code": "200", "status": "OK", "description": "Success"}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(resOutput)
-	if err != nil {
-		return
-	}
+	_ = json.NewEncoder(w).Encode(resOutput)
 }
 
 // Shows all records in the series analyzer internal log at the moment
@@ -166,33 +191,27 @@ func inspectHandler(w http.ResponseWriter, r *http.Request, loginLog *list.List)
 
 	i := 0
 	for e := loginLog.Back(); e != nil; e = e.Prev() {
-		currRec, ok := e.Value.(logRecord)
+		currRec, ok := e.Value.(analyzer.LogRecord)
 		if !ok {
-			log.Println("Inspect: Log record typecasting error occurred.")
+			log.Println("Inspect: Log record typecasting error occurred. e = ", e)
 			oData.Code = 501
 			oData.Status = "error"
 			oData.Description = "Log record typecasting error occurred."
 			break
 		}
 
-		oData.Data[i] = map[string]string{"phone": currRec.phone, "ip": currRec.ip, "time": fmt.Sprintf("%v", currRec.time)}
+		oData.Data[i] = map[string]string{"phone": currRec.Phone, "ip": currRec.Ip, "time": fmt.Sprintf("%v", currRec.Time)}
 		i++
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(oData)
-	if err != nil {
-		return
-	}
+	_ = json.NewEncoder(w).Encode(oData)
 }
 
 func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	nfOutput := map[string]string{"code": "404", "status": "error", "description": "Resource not found"}
-	err := json.NewEncoder(w).Encode(nfOutput)
-	if err != nil {
-		return
-	}
+	_ = json.NewEncoder(w).Encode(nfOutput)
 }
 
 func serverErrorHandler(w http.ResponseWriter, r *http.Request) {
@@ -204,10 +223,7 @@ func serverErrorHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		nfOutput := map[string]string{"code": "500", "status": "error", "description": errDescMsg}
-		err := json.NewEncoder(w).Encode(nfOutput)
-		if err != nil {
-			return
-		}
+		_ = json.NewEncoder(w).Encode(nfOutput)
 	}
 }
 
@@ -244,9 +260,13 @@ func main() {
 		searchAndSaveHandler(w, r, loginLog, ipRepLogger)
 	}).Methods("GET")
 
+	router.HandleFunc("/api/v1/report_bad_ip/{ip}/{reason}", func(w http.ResponseWriter, r *http.Request) {
+		reportBadIPHandler(w, r, ipRepLogger)
+	}).Methods("POST")
+
 	router.HandleFunc("/api/v1/remove/{phone}", func(w http.ResponseWriter, r *http.Request) {
 		removalHandler(w, r, loginLog)
-	}).Methods("GET")
+	}).Methods("DELETE")
 
 	router.HandleFunc("/api/v1/control/inspect", func(w http.ResponseWriter, r *http.Request) {
 		inspectHandler(w, r, loginLog)
@@ -254,7 +274,7 @@ func main() {
 
 	router.HandleFunc("/api/v1/control/cleanup", func(w http.ResponseWriter, r *http.Request) {
 		cleanupHandler(w, r, loginLog)
-	}).Methods("GET")
+	}).Methods("POST")
 
 	router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
 

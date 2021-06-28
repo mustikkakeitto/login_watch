@@ -18,23 +18,23 @@ func TestLogStructure(t *testing.T) {
 		t.Errorf("Log length is %d, expected %d", loginLog.Len(), LogMaxRec)
 	}
 
-	lastEl, ok := loginLog.Back().Value.(logRecord)
+	lastEl, ok := loginLog.Back().Value.(LogRecord)
 	if !ok {
 		t.Errorf("Log record typecasting error")
 	}
-	firstEl, ok := loginLog.Front().Value.(logRecord)
+	firstEl, ok := loginLog.Front().Value.(LogRecord)
 	if !ok {
 		t.Errorf("Log record typecasting error")
 	}
-	if lastEl.phone != fmt.Sprintf("+%011d", LogMaxRec+3) {
-		t.Errorf("Last phone record is %v, expected %v", lastEl.phone, fmt.Sprintf("+%011d", LogMaxRec+3))
+	if lastEl.Phone != fmt.Sprintf("+%011d", LogMaxRec+3) {
+		t.Errorf("Last Phone record is %v, expected %v", lastEl.Phone, fmt.Sprintf("+%011d", LogMaxRec+3))
 	}
-	if firstEl.phone != "+00000000004" {
-		t.Errorf("First phone record is %v, expected +00000000004", firstEl.phone)
+	if firstEl.Phone != "+00000000004" {
+		t.Errorf("First Phone record is %v, expected +00000000004", firstEl.Phone)
 	}
 
-	if lastEl.time > firstEl.time {
-		t.Errorf("Wrong records times: last record time = %d, first record time = %d,", lastEl.time, firstEl.time)
+	if lastEl.Time > firstEl.Time {
+		t.Errorf("Wrong records times: last record Time = %d, first record Time = %d,", lastEl.Time, firstEl.Time)
 	}
 }
 
@@ -57,20 +57,20 @@ func TestLogRecordRemoval(t *testing.T) {
 		t.Errorf("Unable to remove element +00000000002")
 	}
 
-	firstEl, ok := loginLog.Front().Value.(logRecord)
+	firstEl, ok := loginLog.Front().Value.(LogRecord)
 	if !ok {
 		t.Errorf("Log record typecasting error")
 	}
-	secondEl, ok := loginLog.Front().Next().Value.(logRecord)
+	secondEl, ok := loginLog.Front().Next().Value.(LogRecord)
 	if !ok {
 		t.Errorf("Log record typecasting error")
 	}
 
-	if firstEl.phone != "+00000000001" {
-		t.Errorf("Removal failure: first phone record is %v, expected +00000000001", firstEl.phone)
+	if firstEl.Phone != "+00000000001" {
+		t.Errorf("Removal failure: first Phone record is %v, expected +00000000001", firstEl.Phone)
 	}
-	if secondEl.phone != "+00000000003" {
-		t.Errorf("Removal failure: second phone record is %v, expected +00000000003", secondEl.phone)
+	if secondEl.Phone != "+00000000003" {
+		t.Errorf("Removal failure: second Phone record is %v, expected +00000000003", secondEl.Phone)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestPatternCheck(t *testing.T) {
 
 	checkRes = CheckPattern(loginLog, "+79604805269")
 	if checkRes {
-		t.Errorf("Pattern check failure: false positive for phone +79604805269")
+		t.Errorf("Pattern check failure: false positive for Phone +79604805269")
 	}
 
 	_ = PushLog(loginLog, "+79604805269", "127.0.0.5")
@@ -94,12 +94,12 @@ func TestPatternCheck(t *testing.T) {
 
 	checkRes = CheckPattern(loginLog, "+27774805271")
 	if checkRes {
-		t.Errorf("Pattern check failure: false positive for phone +27774805271")
+		t.Errorf("Pattern check failure: false positive for Phone +27774805271")
 	}
 
 	checkRes = CheckPattern(loginLog, "+79604805275")
 	if !checkRes {
-		t.Errorf("Pattern check failure: false negative for phone +79604805275")
+		t.Errorf("Pattern check failure: false negative for Phone +79604805275")
 	}
 
 	_ = PushLog(loginLog, "+79604805275", "127.0.0.7")
@@ -109,17 +109,17 @@ func TestPatternCheck(t *testing.T) {
 
 	checkRes = CheckPattern(loginLog, "+38884805273")
 	if checkRes {
-		t.Errorf("Pattern check failure: false positive for phone +38884805273")
+		t.Errorf("Pattern check failure: false positive for Phone +38884805273")
 	}
 
 	checkRes = CheckPattern(loginLog, "+79604805999")
 	if !checkRes {
-		t.Errorf("Pattern check failure: false negative for phone +79604805999")
+		t.Errorf("Pattern check failure: false negative for Phone +79604805999")
 	}
 
 	checkRes = CheckPattern(loginLog, "+41114805111")
 	if checkRes {
-		t.Errorf("Pattern check failure: false positive for phone +41114805111")
+		t.Errorf("Pattern check failure: false positive for Phone +41114805111")
 	}
 
 	_ = PushLog(loginLog, "+29991234000", "127.0.0.11")
@@ -127,6 +127,6 @@ func TestPatternCheck(t *testing.T) {
 	_ = PushLog(loginLog, "+29991234000", "127.0.0.13")
 	checkRes = CheckPattern(loginLog, "+29991234000")
 	if checkRes {
-		t.Errorf("Pattern check failure for duplicates: false positive for phone +29991234000")
+		t.Errorf("Pattern check failure for duplicates: false positive for Phone +29991234000")
 	}
 }

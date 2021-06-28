@@ -1,6 +1,6 @@
-// Package analyzer implements functions to detect series built from the particular phone numbers, used as login data
+// Package analyzer implements functions to detect series built from the particular Phone numbers, used as login data
 // Its main purpouse is to prevent brute-force attacks to login pages using sequential search for a valid login
-// Analyzer implements its internal in-memory log for storing last reported phone numbers
+// Analyzer implements its internal in-memory log for storing last reported Phone numbers
 package analyzer
 
 import (
@@ -19,13 +19,15 @@ const LewensteinMaxDist = 3
 const LogRecLifeTime = 600 // 10 minutes
 // const CleanupInterval = 18000 // 30 minutes
 
-type logRecord struct {
-	phone string
-	ip    string
-	time  int64
+// LogRecord is an internal log record
+type LogRecord struct {
+	Phone string
+	Ip         string
+	Time       int64
+	IsDetected bool
 }
 
-// Performs a search for existing series in the internal log for a number given
+// CheckPattern performs a search for existing series in the internal log for a number given
 // Returns True in case the series was detected, False - otherwise
 func CheckPattern(loginLog *list.List, phone string) bool {
 
@@ -33,19 +35,19 @@ func CheckPattern(loginLog *list.List, phone string) bool {
 
 	hitCtr := 0
 	for e := loginLog.Back(); e != nil; e = e.Prev() {
-		currRec, ok := e.Value.(logRecord)
+		currRec, ok := e.Value.(LogRecord)
 		if !ok {
 			log.Println("Search: Log record typecasting error occurred.")
 			return false
 		}
 
 		// don't analyze oldies
-		if currRec.time < oldestRecTimeAllowed {
+		if currRec.Time < oldestRecTimeAllowed {
 			break
 		}
 
 		// skip duplicates
-		if currRec.phone == phone {
+		if currRec.Phone == phone {
 			continue
 		}
 
@@ -56,14 +58,16 @@ func CheckPattern(loginLog *list.List, phone string) bool {
 			SubCost: 1,
 			Matches: levenshtein.IdenticalRunes,
 		}
-		distance := levenshtein.DistanceForStrings([]rune(currRec.phone), []rune(phone), levOpts)
+		distance := levenshtein.DistanceForStrings([]rune(currRec.Phone), []rune(phone), levOpts)
 
 		if distance <= LewensteinMaxDist {
 			hitCtr++
+			// TODO: check wether the record has IsDetected flag set: stop search if set, collect the record and proceed with search - otherwise
 		}
 
 		if hitCtr >= MaxPatternHits {
 			// Max hits reached, stopping
+			// TODO: report all the records collected and mark them as reported via IsDetected flag
 			return true
 		}
 	}
@@ -71,9 +75,9 @@ func CheckPattern(loginLog *list.List, phone string) bool {
 	return false
 }
 
-// Adds a phone number to the end of the interal log, alongside with IP
+// PushLog adds a Phone number to the end of the internal log, alongside with IP
 func PushLog(loginLog *list.List, phone string, ip string) bool {
-	loginLog.PushBack(logRecord{phone, ip, time.Now().Unix()})
+	loginLog.PushBack(LogRecord{phone, ip, time.Now().Unix(), false}) // TODO: set IsDetected to true if a series has been revealed
 	if loginLog.Len() > LogMaxRec {
 		loginLog.Remove(loginLog.Front())
 	}
@@ -82,16 +86,16 @@ func PushLog(loginLog *list.List, phone string, ip string) bool {
 	return true
 }
 
-// Removes a phone number from the internal log
+// RemoveRecFromLog removes a Phone number from the internal log
 func RemoveRecFromLog(loginLog *list.List, phone string) bool {
 	for e := loginLog.Back(); e != nil; e = e.Prev() {
-		currRec, ok := e.Value.(logRecord)
+		currRec, ok := e.Value.(LogRecord)
 		if !ok {
 			log.Println("Removal: log record typecasting error occurred.")
 			return false
 		}
 
-		if currRec.phone == phone {
+		if currRec.Phone == phone {
 			loginLog.Remove(e)
 			return true
 		}
@@ -101,18 +105,18 @@ func RemoveRecFromLog(loginLog *list.List, phone string) bool {
 	return false
 }
 
-// Removes all outdated records from the internal log
+// CleanOldies removes all outdated records from the internal log
 func CleanOldies(loginLog *list.List) bool {
 	isOldiesFound := false
 	oldestRecTimeAllowed := time.Now().Unix() - LogRecLifeTime
 	for e := loginLog.Front(); e != nil; e = e.Next() {
-		currRec, ok := e.Value.(logRecord)
+		currRec, ok := e.Value.(LogRecord)
 		if !ok {
 			fmt.Println("Log record typecasting error occurred.")
 			return false
 		}
 
-		if currRec.time < oldestRecTimeAllowed {
+		if currRec.Time < oldestRecTimeAllowed {
 			isOldiesFound = true
 			loginLog.Remove(e)
 		} else {
