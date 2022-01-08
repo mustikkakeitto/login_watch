@@ -1,0 +1,12 @@
+clients:
+  unistream-site:
+    key: jlZgdDEuMfvZVxxtSYCyVUxllOrPxr8vX4RzbVasND4i3vHyqR
+
+  unistream-mobile:
+    key: UHdpZEeVOOCT4Kxp0Lg1pRk3Gj1Jabz8kG7xY0CChxzFTVWLUk
+      
+  moneyto-site:
+    key: KwJpjRELnFdJJSE4i2MF5w5Ubt2bhPOI7iR6RaDKjN3XTdFAFM
+
+  moneyto-mobile:
+    key: FZyUsAKDvoRUSicT4ynX1qH5C6jcWSWeq5ATHg0WhbXPrzKStN

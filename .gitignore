@@ -2,3 +2,4 @@
 /.vscode
 /bin/
 /log/
+data/app_cfg.yml
